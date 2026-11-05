@@ -1583,7 +1583,11 @@ sp<MediaCodecSource> StagefrightRecorder::createAudioSource() {
     format->setInt32("priority", 0 /* realtime */);
 
     sp<MediaCodecSource> audioEncoder =
-            MediaCodecSource::Create(mLooper, format, audioSource);
+            MediaCodecSource::Create(mLooper, format, audioSource, NULL,
+                    // Audio has no working hardware encoder on this HAL. Force
+                    // software/C2 ordering so the Codec2 AAC encoder is tried
+                    // before the stale OMX store entry that ACodec cannot bind.
+                    MediaCodecSource::FLAG_PREFER_SOFTWARE_CODEC);
 // QTI_BEGIN: 2018-02-19: Audio: frameworks/av: enable audio extended features
     if (audioEncoder == NULL) {
         ALOGE("Failed to create audio encoder");

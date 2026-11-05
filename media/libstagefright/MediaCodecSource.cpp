@@ -668,6 +668,13 @@ status_t MediaCodecSource::initEncoder() {
 // QTI_BEGIN: 2018-02-07: Audio: PPR1.180130.002_AOSP_Merge
         }
 // QTI_END: 2018-02-07: Audio: PPR1.180130.002_AOSP_Merge
+        if (!mIsVideo) {
+            ALOGI("audio encoder candidates for %s (%zu):",
+                    outputMIME.c_str(), matchingCodecs.size());
+            for (size_t ix = 0; ix < matchingCodecs.size(); ++ix) {
+                ALOGI("  [%zu] %s", ix, matchingCodecs[ix].c_str());
+            }
+        }
 // QTI_BEGIN: 2023-06-26: Video: StagefrightRecorder: propagate calling pid/uid to MediaCodec
         int32_t callingPid = MediaCodec::kNoPid;
         int32_t callingUid = MediaCodec::kNoUid;
@@ -711,8 +718,12 @@ status_t MediaCodecSource::initEncoder() {
 // QTI_END: 2023-01-01: Video: MediaCodec:configuring block model for encoders
 
             if (err == OK) {
+                ALOGI("selected %s encoder %s",
+                        mIsVideo ? "video" : "audio", matchingCodecs[ix].c_str());
                 break;
             }
+            ALOGI("failed to configure %s encoder %s (err=%d)",
+                    mIsVideo ? "video" : "audio", matchingCodecs[ix].c_str(), err);
             mEncoder->release();
             mEncoder = NULL;
         }
