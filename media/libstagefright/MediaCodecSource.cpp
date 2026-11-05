@@ -659,6 +659,7 @@ status_t MediaCodecSource::initEncoder() {
         Vector<AString> matchingCodecs;
 // QTI_BEGIN: 2018-02-19: Audio: frameworks/av: enable audio extended features
         bool useQcHwEnc = AVUtils::get()->useQCHWEncoder(mOutputFormat, &matchingCodecs);
+        ALOGI("useQcHwEnc=%d, candidates=%zu", useQcHwEnc, matchingCodecs.size());
         if (!useQcHwEnc) {
             MediaCodecList::findMatchingCodecs(
                     outputMIME.c_str(), true /* encoder */,

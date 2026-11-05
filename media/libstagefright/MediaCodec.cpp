@@ -1659,6 +1659,17 @@ MediaCodec::MediaCodec(
             }
             log.log(LOG_TAG, base::StringPrintf("Codec with name '%s' is not found on the device.",
                                   name.c_str()));
+            size_t count = mcl->countCodecs();
+            log.log(LOG_TAG, base::StringPrintf("Codec list has %zu entries; AAC entries:", count));
+            for (size_t i = 0; i < count; ++i) {
+                sp<MediaCodecInfo> ci = mcl->getCodecInfo(i);
+                if (ci != nullptr) {
+                    const char *n = ci->getCodecName();
+                    if (n != nullptr && strstr(n, "aac") != nullptr) {
+                        log.log(LOG_TAG, base::StringPrintf("  [%zu] %s", i, n));
+                    }
+                }
+            }
             return NAME_NOT_FOUND;
         };
     }
