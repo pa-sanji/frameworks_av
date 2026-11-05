@@ -7842,18 +7842,20 @@ void AudioPolicyManager::onNewAudioModulesAvailableInt(DeviceVector *newDevices)
         // alioth HAL on a 4.19 kernel adev_open_input_stream() never returns for
         // the first probe (io_handle 14), so audioserver never publishes
         // media.audio_flinger and the system server watchdog-loops at
-        // StartAudioService. Allow products to skip input profile probing; input
-        // devices are then validated on first use.
+        // StartAudioService. Allow products to skip the stream probe.
+        //
+        // The devices are still attached in that case: skipping the whole loop
+        // would leave mAvailableInputDevices empty, and AudioRecord cannot
+        // create a stream without an input device (camera video then records
+        // video only). Without the probe the HAL's input stream is opened on
+        // first use instead, after boot has completed.
         const bool probeInputProfiles =
                 property_get_bool("ro.audio.probe_input_profiles", true);
         if (!probeInputProfiles) {
-            ALOGI("%s: skipping input profile probing for module %s", __func__,
-                  hwModule->getName());
+            ALOGI("%s: attaching input devices without probing input streams for module %s",
+                  __func__, hwModule->getName());
         }
         for (const auto& inProfile : hwModule->getInputProfiles()) {
-            if (!probeInputProfiles) {
-                break;
-            }
             if (!inProfile->canOpenNewIo()) {
                 ALOGE("Invalid Input profile max open count %u for profile %s",
                       inProfile->maxOpenCount, inProfile->getTagName().c_str());
@@ -7880,20 +7882,23 @@ void AudioPolicyManager::onNewAudioModulesAvailableInt(DeviceVector *newDevices)
                 continue;
             }
 
-            sp<AudioInputDescriptor> inputDesc = new AudioInputDescriptor(
-                    inProfile, mpClientInterface, false /*isPreemptor*/);
+            sp<AudioInputDescriptor> inputDesc;
+            if (probeInputProfiles) {
+                inputDesc = new AudioInputDescriptor(
+                        inProfile, mpClientInterface, false /*isPreemptor*/);
 
-            audio_io_handle_t input = AUDIO_IO_HANDLE_NONE;
-            status_t status = inputDesc->open(nullptr,
-                                              availProfileDevices.itemAt(0),
-                                              AUDIO_SOURCE_MIC,
-                                              (audio_input_flags_t) inProfile->getFlags(),
-                                              &input);
-            if (status != NO_ERROR) {
-                ALOGW("%s: Cannot open input stream for device %s for profile %s on hw module %s",
-                        __func__, availProfileDevices.toString().c_str(),
-                        inProfile->getTagName().c_str(), hwModule->getName());
-                continue;
+                audio_io_handle_t input = AUDIO_IO_HANDLE_NONE;
+                status_t status = inputDesc->open(nullptr,
+                                                  availProfileDevices.itemAt(0),
+                                                  AUDIO_SOURCE_MIC,
+                                                  (audio_input_flags_t) inProfile->getFlags(),
+                                                  &input);
+                if (status != NO_ERROR) {
+                    ALOGW("%s: Cannot open input stream for device %s for profile %s on hw module %s",
+                            __func__, availProfileDevices.toString().c_str(),
+                            inProfile->getTagName().c_str(), hwModule->getName());
+                    continue;
+                }
             }
             for (const auto &device : availProfileDevices) {
                 // give a valid ID to an attached device once confirmed it is reachable
@@ -7905,7 +7910,9 @@ void AudioPolicyManager::onNewAudioModulesAvailableInt(DeviceVector *newDevices)
                     setEngineDeviceConnectionState(device, AUDIO_POLICY_DEVICE_STATE_AVAILABLE);
                 }
             }
-            inputDesc->close();
+            if (inputDesc != nullptr) {
+                inputDesc->close();
+            }
         }
     }
 
