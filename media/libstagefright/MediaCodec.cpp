@@ -2649,31 +2649,27 @@ status_t MediaCodec::init(const AString &name, bool nameIsType) {
     bool secureCodec = false;
     const char *owner = "";
     if (!name.startsWith("android.filter.")) {
-        //make sure if the component name contains qcom/qti, we don't return error
-        //as these components are not present in media_codecs.xml and MediaCodecList won't find
-        //these component by findCodecByName
-        //Video and Flac decoder are present in list so exclude them.
-        if ((!(name.find("qcom", 0) > 0 || name.find("qti", 0) > 0 || name.find("filter", 0) > 0)
-              || name.find("video", 0) > 0 || name.find("flac", 0) > 0 || name.find("c2.qti", 0) >= 0)
-              && !(name.find("tme",0) > 0)) {
-            err = mGetCodecInfo(name, &mCodecInfo);
-            if (err != OK) {
-                mErrorLog.log(LOG_TAG, base::StringPrintf(
-                    "Getting codec info with name '%s' failed (err=%d)", name.c_str(), err));
-                mCodec = NULL;  // remove the codec.
-                return err;
-            }
-
-            if (mCodecInfo == nullptr) {
-                mErrorLog.log(LOG_TAG, base::StringPrintf(
-                    "Getting codec info with name '%s' failed", name.c_str()));
-                return NAME_NOT_FOUND;
-            }
-            secureCodec = name.endsWith(".secure");
-            Vector<AString> mediaTypes;
-            mCodecInfo->getSupportedMediaTypes(&mediaTypes);
-            for (size_t i = 0; i < mediaTypes.size(); ++i) {
-                if (mediaTypes[i].startsWith("video/")) {
+        // Match the AOSP MediaCodec::init used by the reference: always look up
+        // MediaCodecInfo, including QTI OMX names. The old QTI name filter left
+        // mCodecInfo null for OMX.qcom.audio.encoder.aac, so ACodec aborted with
+        // "Unexpected nullptr for codec information".
+        err = mGetCodecInfo(name, &mCodecInfo);
+        if (err != OK) {
+            mErrorLog.log(LOG_TAG, base::StringPrintf(
+                "Getting codec info with name '%s' failed (err=%d)", name.c_str(), err));
+            mCodec = NULL;  // remove the codec.
+            return err;
+        }
+        if (mCodecInfo == nullptr) {
+            mErrorLog.log(LOG_TAG, base::StringPrintf(
+                "Getting codec info with name '%s' failed", name.c_str()));
+            return NAME_NOT_FOUND;
+        }
+        secureCodec = name.endsWith(".secure");
+        Vector<AString> mediaTypes;
+        mCodecInfo->getSupportedMediaTypes(&mediaTypes);
+        for (size_t i = 0; i < mediaTypes.size(); ++i) {
+            if (mediaTypes[i].startsWith("video/")) {
                 mDomain = DOMAIN_VIDEO;
                 break;
             } else if (mediaTypes[i].startsWith("audio/")) {
@@ -2684,8 +2680,7 @@ status_t MediaCodec::init(const AString &name, bool nameIsType) {
                 break;
             }
         }
-      }
-      owner = (mCodecInfo) ? mCodecInfo->getOwnerName() : "default";
+        owner = mCodecInfo->getOwnerName();
     }
 
     mCodec = mGetCodecBase(name, owner);
