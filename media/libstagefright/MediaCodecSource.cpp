@@ -657,18 +657,15 @@ status_t MediaCodecSource::initEncoder() {
                     MediaCodec::CONFIGURE_FLAG_ENCODE);
     } else {
         Vector<AString> matchingCodecs;
-// QTI_BEGIN: 2018-02-19: Audio: frameworks/av: enable audio extended features
-        bool useQcHwEnc = AVUtils::get()->useQCHWEncoder(mOutputFormat, &matchingCodecs);
-        ALOGI("useQcHwEnc=%d, candidates=%zu", useQcHwEnc, matchingCodecs.size());
-        if (!useQcHwEnc) {
-            MediaCodecList::findMatchingCodecs(
-                    outputMIME.c_str(), true /* encoder */,
-                    ((mFlags & FLAG_PREFER_SOFTWARE_CODEC) ? MediaCodecList::kPreferSoftwareCodecs : 0),
-                    &matchingCodecs);
-// QTI_END: 2018-02-19: Audio: frameworks/av: enable audio extended features
-// QTI_BEGIN: 2018-02-07: Audio: PPR1.180130.002_AOSP_Merge
-        }
-// QTI_END: 2018-02-07: Audio: PPR1.180130.002_AOSP_Merge
+        // Match AOSP / PocoF3Releases frameworks_av: always resolve candidates
+        // from MediaCodecList. The QTI useQCHWEncoder hook filled the list with
+        // a hardcoded OMX.qcom.audio.encoder.aac, but that name is not in the
+        // MediaCodecList, so MediaCodec::mGetCodecInfo() failed with
+        // "Codec with name ... is not found on the device".
+        MediaCodecList::findMatchingCodecs(
+                outputMIME.c_str(), true /* encoder */,
+                ((mFlags & FLAG_PREFER_SOFTWARE_CODEC) ? MediaCodecList::kPreferSoftwareCodecs : 0),
+                &matchingCodecs);
         if (!mIsVideo) {
             ALOGI("audio encoder candidates for %s (%zu):",
                     outputMIME.c_str(), matchingCodecs.size());
