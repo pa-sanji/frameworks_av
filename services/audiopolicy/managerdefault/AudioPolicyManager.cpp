@@ -7836,7 +7836,24 @@ void AudioPolicyManager::onNewAudioModulesAvailableInt(DeviceVector *newDevices)
         }
         // open input streams needed to access attached devices to validate
         // mAvailableInputDevices list
+        //
+        // Some legacy prebuilt primary HALs block forever when an input stream
+        // is opened for probing before the system is fully up: with the MIUI
+        // alioth HAL on a 4.19 kernel adev_open_input_stream() never returns for
+        // the first probe (io_handle 14), so audioserver never publishes
+        // media.audio_flinger and the system server watchdog-loops at
+        // StartAudioService. Allow products to skip input profile probing; input
+        // devices are then validated on first use.
+        const bool probeInputProfiles =
+                property_get_bool("ro.audio.probe_input_profiles", true);
+        if (!probeInputProfiles) {
+            ALOGI("%s: skipping input profile probing for module %s", __func__,
+                  hwModule->getName());
+        }
         for (const auto& inProfile : hwModule->getInputProfiles()) {
+            if (!probeInputProfiles) {
+                break;
+            }
             if (!inProfile->canOpenNewIo()) {
                 ALOGE("Invalid Input profile max open count %u for profile %s",
                       inProfile->maxOpenCount, inProfile->getTagName().c_str());
