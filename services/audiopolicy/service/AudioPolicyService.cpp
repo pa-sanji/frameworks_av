@@ -350,6 +350,7 @@ void AudioPolicyService::onAudioSystemReady() {
 
         audioPolicyEffects = mAudioPolicyEffects;
     }
+    audioPolicyEffects->initGlobalDolbyEffect();
     audioPolicyEffects->initDefaultDeviceEffects();
 }
 
